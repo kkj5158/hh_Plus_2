@@ -25,4 +25,10 @@ public interface RegistrationRepository extends JpaRepository<Registration, Stri
         WHERE r.lecture.lectureId = :lectureId
         """)
   List<Registration> findRegistrationsByLectureId(@Param("lectureId") String lectureId);
+  @Query("""
+        SELECT r FROM Registration r
+        JOIN FETCH r.lecture l
+        WHERE r.lecture.lectureId = :lectureId and  r.user.userId = :userId
+        """)
+  List<Registration> findRegistrationsById(@Param("userId") String userId, @Param("lectureId") String lectureId);
 }

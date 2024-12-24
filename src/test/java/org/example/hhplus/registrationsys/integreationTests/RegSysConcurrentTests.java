@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 public class RegSysConcurrentTests {
@@ -49,7 +48,8 @@ public class RegSysConcurrentTests {
                      .lecturer("명강사")
                      .capacity(30) // 정원 30명
                      .vacancy(30)   // 공석 5명
-                     .lectureDttm(LocalDateTime.now().plusDays(1))
+                     .lectureDttm(LocalDateTime.now()
+                                               .plusDays(1))
                      .build();
 
     lectureRepository.save(lecture);
@@ -102,4 +102,49 @@ public class RegSysConcurrentTests {
     List<Registration> registrationCount = registrationRepository.findRegistrationsByLectureId(lecture.getLectureId());
     assertThat(registrationCount.size()).isEqualTo(30); // 5명의 사용자가 성공적으로 신청했어야 함
   }
+
+
+  @Test
+  void 동일유저_같은특강_5번신청_1번만성공() throws InterruptedException {
+
+    int numberOfThreads = 5; // 동시 요청 수
+    ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
+    CountDownLatch latch = new CountDownLatch(numberOfThreads);
+
+    //동일유저
+    User user = User.builder()
+                    .userId(generateRandomId("testUser"))
+                    .userNm("테스트 사용자")
+                    .build();
+    userRepository.save(user);
+
+    // 모든 스레드에서 강의 신청 요청
+    for (int i = 0; i < numberOfThreads; i++) {
+      executorService.submit(() -> {
+        try {
+          // 강의 신청 커맨드 생성
+          LectureRegCommand command = LectureRegCommand.builder()
+                                                       .userId(user.getUserId())
+                                                       .lectureId(lecture.getLectureId())
+                                                       .build();
+
+          // 강의 신청
+          regSysService.applicateLecture(command);
+        } catch (Exception e) {
+          System.out.println("Exception: " + e.getMessage());
+        } finally {
+          latch.countDown();
+        }
+      });
+    }
+
+    latch.await(); // 모든 스레드가 완료될 때까지 대기
+    executorService.shutdown();
+
+    // 신청된 수 확인
+    List<Registration> registrationCount = registrationRepository.findRegistrationsById(user.getUserId(),lecture.getLectureId());
+    assertThat(registrationCount.size()).isEqualTo(1); // 1번만 등록에 성공적으로 신청했어야 함
+  }
+
+
 }
