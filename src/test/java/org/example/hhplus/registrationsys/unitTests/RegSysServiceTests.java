@@ -7,12 +7,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.example.hhplus.registrationsys.exception.DefaultException;
-import org.example.hhplus.registrationsys.repository.RegRepository;
+import org.example.hhplus.registrationsys.repository.LectureRepository;
+import org.example.hhplus.registrationsys.repository.RegistrationRepository;
+import org.example.hhplus.registrationsys.repository.UserRepository;
 import org.example.hhplus.registrationsys.repository.entity.Lecture;
 import org.example.hhplus.registrationsys.repository.entity.Registration;
 import org.example.hhplus.registrationsys.repository.entity.RegistrationId;
@@ -36,7 +37,13 @@ public class RegSysServiceTests {
   private RegSysServiceImpl regSysService;
 
   @Mock
-  private RegRepository regRepository;
+  private RegistrationRepository registrationRepository;
+  @Mock
+
+  private UserRepository userRepository;
+  @Mock
+
+  private LectureRepository lectureRepository;
 
   private User user;
   private Lecture lecture;
@@ -64,10 +71,10 @@ public class RegSysServiceTests {
                                                  .build();
 
 
-    when(regRepository.findUserInfoByUserId(user.getUserId())).thenReturn(Optional.of(user));
-    when(regRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
-    when(regRepository.existsByUserAndLecture(user, lecture)).thenReturn(false);
-    when(regRepository.decreaseVacancy(lecture.getLectureId())).thenReturn(1);
+    when(userRepository.findByUserId(user.getUserId())).thenReturn(Optional.of(user));
+    when(lectureRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
+    when(registrationRepository.existsByUserAndLecture(user, lecture)).thenReturn(false);
+    when(lectureRepository.decreaseVacancy(lecture.getLectureId())).thenReturn(1);
 
     // when
     LectureRegQuery result = regSysService.applicateLecture(command);
@@ -77,7 +84,7 @@ public class RegSysServiceTests {
     assertThat(result.isSuccessYn()).isTrue();
     assertThat(result.getMessage()).isEqualTo("신청 성공");
 
-    verify(regRepository).save(argThat(reg ->
+    verify(registrationRepository).save(argThat(reg ->
         reg.getUser().equals(user) &&
             reg.getLecture().equals(lecture)
     ));
@@ -91,9 +98,9 @@ public class RegSysServiceTests {
                                                  .lectureId(lecture.getLectureId())
                                                  .build();
 
-    when(regRepository.findUserInfoByUserId(user.getUserId())).thenReturn(Optional.of(user));
-    when(regRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
-    when(regRepository.existsByUserAndLecture(user, lecture)).thenReturn(true);
+    when(userRepository.findByUserId(user.getUserId())).thenReturn(Optional.of(user));
+    when(lectureRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
+    when(registrationRepository.existsByUserAndLecture(user, lecture)).thenReturn(true);
 
     // when
     LectureRegQuery result = regSysService.applicateLecture(command);
@@ -102,7 +109,7 @@ public class RegSysServiceTests {
     assertThat(result).isNotNull();
     assertThat(result.isSuccessYn()).isFalse();
     assertThat(result.getMessage()).isEqualTo("이미 신청된 강의입니다.");
-    verify(regRepository, never()).save(any());
+    verify(registrationRepository, never()).save(any());
   }
 
   @Test
@@ -113,10 +120,10 @@ public class RegSysServiceTests {
                                                  .lectureId(lecture.getLectureId())
                                                  .build();
 
-    when(regRepository.findUserInfoByUserId(user.getUserId())).thenReturn(Optional.of(user));
-    when(regRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
-    when(regRepository.existsByUserAndLecture(user, lecture)).thenReturn(false);
-    when(regRepository.decreaseVacancy(lecture.getLectureId())).thenReturn(0);
+    when(userRepository.findByUserId(user.getUserId())).thenReturn(Optional.of(user));
+    when(lectureRepository.findLectureInfoByLectureId(lecture.getLectureId())).thenReturn(Optional.of(lecture));
+    when(registrationRepository.existsByUserAndLecture(user, lecture)).thenReturn(false);
+    when(lectureRepository.decreaseVacancy(lecture.getLectureId())).thenReturn(0);
 
     // when
     LectureRegQuery result = regSysService.applicateLecture(command);
@@ -125,7 +132,7 @@ public class RegSysServiceTests {
     assertThat(result).isNotNull();
     assertThat(result.isSuccessYn()).isFalse();
     assertThat(result.getMessage()).isEqualTo("강의 정원이 초과되었습니다.");
-    verify(regRepository, never()).save(any());
+    verify(registrationRepository, never()).save(any());
   }
 
   @Test
@@ -137,7 +144,7 @@ public class RegSysServiceTests {
         Lecture.builder().lectureId("L102").title("Physics 101").capacity(3).build()
     );
 
-    when(regRepository.findEnrollableLecturesByDateRange(any(), any())).thenReturn(lectures);
+    when(lectureRepository.findEnrollableLecturesByDateRange(any(), any())).thenReturn(lectures);
 
     // when
     List<EnrollableLectureQuery> result = regSysService.searchEnrollableLectures(
@@ -148,7 +155,7 @@ public class RegSysServiceTests {
     assertThat(result).isNotEmpty();
     assertThat(result).hasSize(2);
     assertThat(result.get(0).getLectureId()).isEqualTo("L101");
-    verify(regRepository).findEnrollableLecturesByDateRange(any(), any());
+    verify(lectureRepository).findEnrollableLecturesByDateRange(any(), any());
   }
 
   @Test
@@ -167,9 +174,9 @@ public class RegSysServiceTests {
                     .build()
     );
 
-    when(regRepository.findUserInfoByUserId(user.getUserId())).thenReturn(Optional.ofNullable(user));
+    when(userRepository.findByUserId(user.getUserId())).thenReturn(Optional.ofNullable(user));
 
-    when(regRepository.findRegistrationsByUserId(user.getUserId())).thenReturn(registrations);
+    when(registrationRepository.findRegistrationsByUserId(user.getUserId())).thenReturn(registrations);
 
     // when
     List<UserLectureQuery> result = regSysService.searchEnrolledLectures(
@@ -190,7 +197,7 @@ public class RegSysServiceTests {
   void 유효하지않은_유저아이디_NotFound() {
     // given
     String invalidUserId = "999";
-    when(regRepository.findUserInfoByUserId(invalidUserId)).thenReturn(Optional.empty());
+    when(userRepository.findByUserId(invalidUserId)).thenReturn(Optional.empty());
 
     // then
     assertThatThrownBy(() -> regSysService.validateUserInfo(invalidUserId))
@@ -202,7 +209,7 @@ public class RegSysServiceTests {
   void 유효하지않은_강의아이디_NotFound() {
     // given
     String invalidLectureId = "999";
-    when(regRepository.findLectureInfoByLectureId(invalidLectureId)).thenReturn(Optional.empty());
+    when(lectureRepository.findLectureInfoByLectureId(invalidLectureId)).thenReturn(Optional.empty());
 
     // then
     assertThatThrownBy(() -> regSysService.validateLectureInfo(invalidLectureId))
