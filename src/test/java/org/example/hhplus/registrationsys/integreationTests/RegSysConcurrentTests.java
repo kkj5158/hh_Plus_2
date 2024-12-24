@@ -48,7 +48,7 @@ public class RegSysConcurrentTests {
                      .title("Concurrent Programming")
                      .lecturer("명강사")
                      .capacity(30) // 정원 30명
-                     .vacancy(5)   // 공석 5명
+                     .vacancy(30)   // 공석 5명
                      .lectureDttm(LocalDateTime.now().plusDays(1))
                      .build();
 
@@ -56,9 +56,9 @@ public class RegSysConcurrentTests {
   }
 
   @Test
-  void testConcurrentLectureApplication() throws InterruptedException {
+  void 동일특강_40명신청_30명만성공() throws InterruptedException {
 
-    int numberOfThreads = 10000; // 동시 요청 수
+    int numberOfThreads = 40; // 동시 요청 수
     ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
     CountDownLatch latch = new CountDownLatch(numberOfThreads);
 
@@ -100,6 +100,6 @@ public class RegSysConcurrentTests {
 
     // 신청된 수 확인
     List<Registration> registrationCount = registrationRepository.findRegistrationsByLectureId(lecture.getLectureId());
-    assertThat(registrationCount.size()).isEqualTo(5); // 5명의 사용자가 성공적으로 신청했어야 함
+    assertThat(registrationCount.size()).isEqualTo(30); // 5명의 사용자가 성공적으로 신청했어야 함
   }
 }
