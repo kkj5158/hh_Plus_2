@@ -9,7 +9,9 @@ import lombok.RequiredArgsConstructor;
 import org.example.hhplus.registrationsys.controller.RegSysController;
 import org.example.hhplus.registrationsys.exception.DefaultException;
 import org.example.hhplus.registrationsys.helper.DateHelper;
-import org.example.hhplus.registrationsys.repository.RegRepository;
+import org.example.hhplus.registrationsys.repository.LectureRepository;
+import org.example.hhplus.registrationsys.repository.RegistrationRepository;
+import org.example.hhplus.registrationsys.repository.UserRepository;
 import org.example.hhplus.registrationsys.repository.entity.Lecture;
 import org.example.hhplus.registrationsys.repository.entity.Registration;
 import org.example.hhplus.registrationsys.repository.entity.RegistrationId;
@@ -28,8 +30,9 @@ import org.springframework.stereotype.Service;
 public class RegSysServiceImpl implements RegSysService {
 
   private static final Logger log = LoggerFactory.getLogger(RegSysController.class);
-  private final RegRepository regRepository;
-  DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+  private final UserRepository userRepository;
+  private final LectureRepository lectureRepository;
+  private final RegistrationRepository registrationRepository;  DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 
   public User validateUserInfo(String userId) {
@@ -38,10 +41,10 @@ public class RegSysServiceImpl implements RegSysService {
     User userInfo;
 
     // 검증
-    if (regRepository.findUserInfoByUserId(userId)
-                     .isPresent()) {
-      userInfo = regRepository.findUserInfoByUserId(userId)
-                              .get();
+    if (userRepository.findByUserId(userId)
+                              .isPresent()) {
+      userInfo = userRepository.findByUserId(userId)
+                                       .get();
     } else {
       throw new DefaultException(HttpStatus.BAD_REQUEST, "존재하지 않는 유저Id 입니다.");
     }
@@ -59,10 +62,10 @@ public class RegSysServiceImpl implements RegSysService {
     Lecture lectureInfo;
 
     // 검증
-    if (regRepository.findLectureInfoByLectureId(lectureId)
-                     .isPresent()) {
-      lectureInfo = regRepository.findLectureInfoByLectureId(lectureId)
-                                 .get();
+    if (lectureRepository.findLectureInfoByLectureId(lectureId)
+                              .isPresent()) {
+      lectureInfo = lectureRepository.findLectureInfoByLectureId(lectureId)
+                                          .get();
     } else {
       throw new DefaultException(HttpStatus.BAD_REQUEST, "존재하지 않는 강의Id 입니다.");
     }
@@ -86,7 +89,7 @@ public class RegSysServiceImpl implements RegSysService {
     // 사용자와 강의 엔티티 생성
 
     // 중복 신청 확인
-    if (regRepository.existsByUserAndLecture(userInfo, lectureInfo)) {
+    if (registrationRepository.existsByUserAndLecture(userInfo, lectureInfo)) {
       log.warn("사용자 {}가 이미 강의 {}에 신청했습니다.", userInfo.getUserId(), lectureInfo.getLectureId());
       LectureRegQuery response = LectureRegQuery.builder()
                                                 .userId(userInfo.getUserId())
@@ -100,7 +103,7 @@ public class RegSysServiceImpl implements RegSysService {
     }
 
     // 강의 정원 확인
-    int updatedRows = regRepository.decreaseVacancy(lectureInfo.getLectureId());
+    int updatedRows = lectureRepository.decreaseVacancy(lectureInfo.getLectureId());
 
     if (updatedRows == 0) {
 
@@ -127,7 +130,7 @@ public class RegSysServiceImpl implements RegSysService {
                                             .registrationDttm(LocalDateTime.now())
                                             .build();
 
-    regRepository.save(registration);
+    registrationRepository.save(registration);
 
     LectureRegQuery query = LectureRegQuery.builder()
                                            .userId(registration.getUser()
@@ -156,7 +159,7 @@ public class RegSysServiceImpl implements RegSysService {
     String startOfDay = DateHelper.setStartOfDay(lectureDate);
     String endOfDay = DateHelper.setEndOfDay(lectureDate);
 
-    List<Lecture> lectures = regRepository.findEnrollableLecturesByDateRange(startOfDay, endOfDay);
+    List<Lecture> lectures = lectureRepository.findEnrollableLecturesByDateRange(startOfDay, endOfDay);
 
     if (lectures.size() == 0) {
       throw new DefaultException(HttpStatus.NOT_FOUND, "해당 날짜에 강의가 존재하지 않습니다.");
@@ -185,7 +188,7 @@ public class RegSysServiceImpl implements RegSysService {
     // 사용자 신청 내역 조회
     String userId = userInfo.getUserId();
 
-    List<Registration> registrations = regRepository.findRegistrationsByUserId(userId);
+    List<Registration> registrations = registrationRepository.findRegistrationsByUserId(userId);
 
     // 응답 데이터 변환
     List<UserLectureQuery> queries = registrations.stream()
